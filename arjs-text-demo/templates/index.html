@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AR.js Text Display</title>
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/2.0.5/aframe/build/aframe-ar.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Helvetica', sans-serif;
+    }
+    #fixed-text-box {
+      position: absolute;
+      top: 50px;
+      right: 50px;
+      width: 350px;
+      max-height: 120px;
+      padding: 10px;
+      background-color: rgba(255, 255, 255, 0.6);
+      border: 1px transparent #f9f9f9;
+      font-size: 16px;
+      z-index: 1000;
+      border-radius: 15px 50px;
+      background: #ffffff68;
+      text-align: center;
+      padding: 20px;
+      /* width: 200px; */
+      /* height: 150px; */
+      overflow: hidden;
+    }
+    #dynamic-text-box {
+      position: absolute;
+      right: 50px;
+      top: 150px;
+      width: 350px;
+      max-height: 120px;
+      padding: 10px;
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.8);
+      border: 1px transparent #ccc;
+      font-size: 16px;
+      z-index: 1000;
+      border-radius: 15px 50px;
+      background: #ffffff68;
+      padding: 20px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="fixed-text-box">{{ fixed_text | safe }}</div>
+  <div id="dynamic-text-box">{{ initial_text | safe }}</div>
+  <a-scene embedded arjs>
+    <a-entity camera></a-entity>
+  </a-scene>
+  <script>
+    function adjustDynamicTextBoxPosition() {
+      const fixedTextBox = document.getElementById('fixed-text-box');
+      const dynamicTextBox = document.getElementById('dynamic-text-box');
+
+      // Calculate the bottom position of the fixed text box
+      const fixedTextBoxBottom = fixedTextBox.offsetTop + fixedTextBox.offsetHeight + 10; // Adding margin
+
+      // Set the top position of the dynamic text box
+      dynamicTextBox.style.top = fixedTextBoxBottom + 'px';
+    }
+
+    function updateTextBox(newText) {
+      const dynamicTextBox = document.getElementById('dynamic-text-box');
+      dynamicTextBox.innerHTML = newText;
+
+      // Adjust height based on content
+      dynamicTextBox.style.height = 'auto';
+      const maxHeight = 120; // Set a maximum height
+      if (dynamicTextBox.offsetHeight > maxHeight) {
+        dynamicTextBox.style.height = maxHeight + 'px';
+      }
+
+      // Adjust the position of the dynamic text box
+      adjustDynamicTextBoxPosition();
+    }
+
+    // Adjust the position of the dynamic text box on initial load
+    window.onload = adjustDynamicTextBoxPosition;
+
+    // Establish a connection to the server for real-time updates
+    const eventSource = new EventSource('/stream');
+    eventSource.onmessage = function(event) {
+      updateTextBox(event.data);
+    };
+  </script>
+</body>
+</html>

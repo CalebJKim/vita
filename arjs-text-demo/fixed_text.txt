@@ -1,0 +1,4 @@
+Patient's Reason for Visit: Stomach Pain
+Medical History: Diabetes
+Diagnoses: Stomach Cramps
+Current Medications: N/A
