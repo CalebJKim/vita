@@ -87,7 +87,6 @@ class TranscriptManager:
     def get_transcript(self):
         return self.transcript
 
-
 class GroqClient:
     def __init__(self):
         self.client = Groq(api_key=os.getenv('GROQ_API_KEY'))

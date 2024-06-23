@@ -5,6 +5,11 @@
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/2.0.5/aframe/build/aframe-ar.js"></script>
   <style>
+    video {
+      transform: scaleX(-1);
+    }
+  </style>
+  <style>
     body {
       margin: 0;
       overflow: hidden;
@@ -25,8 +30,6 @@
       background: #ffffff68;
       text-align: center;
       padding: 20px;
-      /* width: 200px; */
-      /* height: 150px; */
       overflow: hidden;
     }
     #dynamic-text-box {
@@ -45,12 +48,19 @@
       background: #ffffff68;
       padding: 20px;
       overflow: hidden;
+      overflow-y: auto; /* Add scroll if needed */
+    }
+    #dynamic-text-content {
+      display: flex;
+      flex-direction: column;
     }
   </style>
 </head>
 <body>
   <div id="fixed-text-box">{{ fixed_text | safe }}</div>
-  <div id="dynamic-text-box">{{ initial_text | safe }}</div>
+  <div id="dynamic-text-box">
+    <div id="dynamic-text-content">{{ initial_text | safe }}</div>
+  </div>
   <a-scene embedded arjs>
     <a-entity camera></a-entity>
   </a-scene>
@@ -67,18 +77,16 @@
     }
 
     function updateTextBox(newText) {
+      const dynamicTextContent = document.getElementById('dynamic-text-content');
+      
+      // Create a new div for the new text and append it
+      const newTextElement = document.createElement('div');
+      newTextElement.innerHTML = newText;
+      dynamicTextContent.appendChild(newTextElement);
+
+      // Scroll to the bottom
       const dynamicTextBox = document.getElementById('dynamic-text-box');
-      dynamicTextBox.innerHTML = newText;
-
-      // Adjust height based on content
-      dynamicTextBox.style.height = 'auto';
-      const maxHeight = 120; // Set a maximum height
-      if (dynamicTextBox.offsetHeight > maxHeight) {
-        dynamicTextBox.style.height = maxHeight + 'px';
-      }
-
-      // Adjust the position of the dynamic text box
-      adjustDynamicTextBoxPosition();
+      dynamicTextBox.scrollTop = dynamicTextBox.scrollHeight;
     }
 
     // Adjust the position of the dynamic text box on initial load

@@ -4,23 +4,33 @@ from watchdog.events import FileSystemEventHandler
 import logging
 import threading
 import time
+import os
 
 app = Flask(__name__)
 
-text_file_path = "text.txt"
+# Adjust the paths
+text_file_path = os.path.join('..', 'supertranscription', 'summary.txt')
 fixed_text_file_path = "fixed_text.txt"
 latest_text = ""
 fixed_text = ""
+
+# Track the last read position
+last_read_position = 0
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 def read_text_file():
-    global latest_text
+    global latest_text, last_read_position
     try:
         with open(text_file_path, "r") as file:
-            latest_text = file.read().replace("\n", "<br>")
-            logging.info(f'Latest text updated: {latest_text}')
+            # Move the file pointer to the last read position
+            file.seek(last_read_position)
+            new_content = file.read()
+            if new_content:
+                latest_text += new_content.replace("\n", "<br>")
+                last_read_position = file.tell()
+                logging.info(f'Latest text updated: {latest_text}')
     except Exception as e:
         logging.error(f'Error reading {text_file_path}: {e}')
 
@@ -35,7 +45,7 @@ def read_fixed_text_file():
 
 class TextFileHandler(FileSystemEventHandler):
     def on_modified(self, event):
-        if event.src_path.endswith(text_file_path):
+        if event.src_path.endswith('summary.txt'):
             logging.info(f'{text_file_path} has been modified.')
             read_text_file()
 
@@ -51,7 +61,9 @@ def stream():
         global latest_text
         while True:
             time.sleep(1)
-            yield f"data: {latest_text}\n\n"
+            if latest_text:
+                yield f"data: {latest_text}\n\n"
+                latest_text = ""
     return Response(generate(), mimetype='text/event-stream')
 
 if __name__ == "__main__":
@@ -62,7 +74,8 @@ if __name__ == "__main__":
     # Set up the observer
     event_handler = TextFileHandler()
     observer = Observer()
-    observer.schedule(event_handler, path='.', recursive=False)
+    # Use the directory of the text_file_path
+    observer.schedule(event_handler, path=os.path.dirname(text_file_path), recursive=False)
     observer_thread = threading.Thread(target=observer.start)
     observer_thread.start()
 

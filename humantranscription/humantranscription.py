@@ -7,6 +7,20 @@ from dotenv import load_dotenv
 from groq import Groq
 import json
 import time
+import asyncio
+from hume import HumeStreamClient
+from hume.models.config import ProsodyConfig, BurstConfig
+
+class HumeEmotionAnalyzer:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.client = HumeStreamClient(api_key)
+        self.configs = [ProsodyConfig(), BurstConfig()]
+
+    async def analyze_emotions(self, audio_file):
+        async with self.client.connect(self.configs) as socket:
+            result = await socket.send_file(audio_file)
+            return result
 
 # Load environment variables
 load_dotenv()
@@ -38,14 +52,16 @@ class AudioRecorder:
         self.frames = []
         self.is_recording = False
         self.lock = threading.Lock()
+        self.chunk_duration = 4.5  # seconds
+        self.chunk_size = int(self.rate * self.chunk_duration)
 
     def start_recording(self):
         self.is_recording = True
         self.frames = []
         while self.is_recording:
-            data = self.stream.read(self.chunk)
+            data = self.stream.read(self.chunk_size)
             with self.lock:
-                self.frames.append(data)
+                self.frames = [data]  # Only keep the latest chunk
 
     def get_chunk(self):
         with self.lock:
@@ -198,14 +214,16 @@ class GroqClient:
                 print(json.loads(function_response)["message"])
 
 class RealTimeProcessor:
-    def __init__(self, audio_recorder, groq_client):
+    def __init__(self, audio_recorder, groq_client, hume_emotion_analyzer):
         self.audio_recorder = audio_recorder
         self.speech_recognizer = sr.Recognizer()
         self.groq_client = groq_client
+        self.hume_emotion_analyzer = hume_emotion_analyzer
         self.running = False
         self.transcript_manager = TranscriptManager()
+        self.loop = asyncio.get_event_loop()
 
-    def process_audio(self):
+    async def process_audio(self):
         while self.running:
             chunk = self.audio_recorder.get_chunk()
             if chunk:
@@ -215,7 +233,13 @@ class RealTimeProcessor:
                     summary = self.groq_client.summarize(text)
                     self.append_to_file(summary)
                     self.transcript_manager.add_to_transcript(text)
-            time.sleep(3)  # Process every 3 seconds
+                    emotions = await self.hume_emotion_analyzer.analyze_emotions(audio_file)
+                    self.handle_emotions(emotions)
+                await asyncio.sleep(3) # Process every 3 seconds
+
+    def handle_emotions(self, emotions):
+        # Process and log the emotional analysis results
+        print("Emotional Analysis Results:", emotions)
 
     def save_chunk_to_file(self, chunk):
         filename = 'temp_chunk.wav'
@@ -253,7 +277,8 @@ class Listener:
     def __init__(self):
         self.audio_recorder = AudioRecorder()
         self.groq_client = GroqClient()
-        self.real_time_processor = RealTimeProcessor(self.audio_recorder, self.groq_client)
+        self.hume_emotion_analyzer = HumeEmotionAnalyzer(api_key=os.getenv('HUME_API_KEY'))
+        self.real_time_processor = RealTimeProcessor(self.audio_recorder, self.groq_client, self.hume_emotion_analyzer)
         self.recording_thread = threading.Thread(target=self.audio_recorder.start_recording)
 
     def start(self):
@@ -271,9 +296,7 @@ class Listener:
         # Post-processing after recording stops
         transcript = self.real_time_processor.transcript_manager.get_transcript()
         print("Transcript:", transcript)
-
         bullets_path = "summary.txt"
-        
         with open(bullets_path, 'r') as file:
             bullet_points = file.read()
 
